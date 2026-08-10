@@ -35,6 +35,7 @@ function ShellContent({ children }: { children: ReactNode }) {
     wipeSession,
     secondsUntilTimeout,
     timedOut,
+    userEmail,
   } = useSessionState();
 
   if (pathname === "/login" || pathname === "/register") {
@@ -129,6 +130,12 @@ function ShellContent({ children }: { children: ReactNode }) {
             </div>
 
             <div className="flex items-center gap-2">
+              {userEmail && (
+                <span className="hidden h-10 items-center gap-2 rounded-md border border-[#2a313d] bg-[#141820] px-3 text-sm text-[#7a8696] lg:flex">
+                  <Icon name="user" />
+                  {userEmail}
+                </span>
+              )}
               <span
                 className={`hidden h-10 items-center gap-2 rounded-md px-3 text-sm font-semibold sm:flex ${session.pill}`}
               >
