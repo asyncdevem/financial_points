@@ -36,39 +36,37 @@ export async function updateUserProfile(
   userId: number,
   data: Partial<Omit<UserProfile, "id" | "user_id" | "created_at" | "updated_at">>
 ): Promise<UserProfile> {
-  const updates: string[] = [];
-  const values: any[] = [];
+  const setClauses: string[] = [];
   
-  if (data.full_name) {
-    updates.push(`full_name = $${values.length + 1}`);
-    values.push(data.full_name);
+  if (data.full_name !== undefined) {
+    setClauses.push(`full_name = '${data.full_name.replace(/'/g, "''")}'`);
   }
-  if (data.phone) {
-    updates.push(`phone = $${values.length + 1}`);
-    values.push(data.phone);
+  if (data.phone !== undefined) {
+    setClauses.push(`phone = '${data.phone.replace(/'/g, "''")}'`);
   }
-  if (data.address) {
-    updates.push(`address = $${values.length + 1}`);
-    values.push(data.address);
+  if (data.address !== undefined) {
+    setClauses.push(`address = '${data.address.replace(/'/g, "''")}'`);
   }
-  if (data.date_of_birth) {
-    updates.push(`date_of_birth = $${values.length + 1}`);
-    values.push(data.date_of_birth);
+  if (data.date_of_birth !== undefined) {
+    const dateStr = data.date_of_birth instanceof Date 
+      ? data.date_of_birth.toISOString() 
+      : new Date(data.date_of_birth).toISOString();
+    setClauses.push(`date_of_birth = '${dateStr}'`);
   }
-  if (data.income_bracket) {
-    updates.push(`income_bracket = $${values.length + 1}`);
-    values.push(data.income_bracket);
+  if (data.income_bracket !== undefined) {
+    setClauses.push(`income_bracket = '${data.income_bracket.replace(/'/g, "''")}'`);
   }
   
-  updates.push(`updated_at = CURRENT_TIMESTAMP`);
-  values.push(userId);
+  setClauses.push(`updated_at = CURRENT_TIMESTAMP`);
   
-  const result = await sql`
+  const query = `
     UPDATE user_profiles 
-    SET ${sql.unsafe(updates.join(", "))}
+    SET ${setClauses.join(", ")}
     WHERE user_id = ${userId}
     RETURNING *
   `;
+  
+  const result = await sql.unsafe(query) as any;
   return result[0] as UserProfile;
 }
 
@@ -104,7 +102,7 @@ export async function createUserCard(
   bankId: number,
   cardType: string,
   cardNumber: string,
-  expiryDate: string,
+  expiryDate: string, // Format: "MM/YY"
   cvv: string,
   nickname?: string
 ): Promise<UserCard> {
@@ -112,9 +110,13 @@ export async function createUserCard(
   const lastFour = getLastFour(cardNumber);
   const cvvHash = hash(cvv);
   
+  // Parse expiry date (MM/YY format)
+  const [month, year] = expiryDate.split('/').map(s => parseInt(s, 10));
+  const fullYear = year < 100 ? 2000 + year : year; // Convert YY to YYYY
+  
   const result = await sql`
-    INSERT INTO user_cards (user_id, bank_id, card_type, encrypted_card_number, last_four, expiry_date, cvv_hash, card_nickname)
-    VALUES (${userId}, ${bankId}, ${cardType}, ${encryptedNumber}, ${lastFour}, ${expiryDate}, ${cvvHash}, ${nickname || null})
+    INSERT INTO user_cards (user_id, bank_id, card_type, encrypted_card_number, last_four, expiry_month, expiry_year, cvv_hash, card_nickname)
+    VALUES (${userId}, ${bankId}, ${cardType}, ${encryptedNumber}, ${lastFour}, ${month}, ${fullYear}, ${cvvHash}, ${nickname || null})
     RETURNING *
   `;
   return result[0] as UserCard;
@@ -195,43 +197,42 @@ export async function updateOnboardingProgress(
   userId: number,
   updates: Partial<Omit<OnboardingProgress, "id" | "user_id" | "created_at" | "updated_at">>
 ): Promise<OnboardingProgress> {
-  const fields: string[] = [];
-  const values: any[] = [];
+  const setClauses: string[] = [];
   
   if (updates.profile_completed !== undefined) {
-    fields.push(`profile_completed = $${values.length + 1}`);
-    values.push(updates.profile_completed);
+    setClauses.push(`profile_completed = ${updates.profile_completed ? 'TRUE' : 'FALSE'}`);
   }
-  if (updates.card_added !== undefined) {
-    fields.push(`card_added = $${values.length + 1}`);
-    values.push(updates.card_added);
+  if (updates.cards_completed !== undefined) {
+    setClauses.push(`cards_completed = ${updates.cards_completed ? 'TRUE' : 'FALSE'}`);
   }
-  if (updates.preferences_set !== undefined) {
-    fields.push(`preferences_set = $${values.length + 1}`);
-    values.push(updates.preferences_set);
+  if (updates.preferences_completed !== undefined) {
+    setClauses.push(`preferences_completed = ${updates.preferences_completed ? 'TRUE' : 'FALSE'}`);
   }
   if (updates.tutorial_completed !== undefined) {
-    fields.push(`tutorial_completed = $${values.length + 1}`);
-    values.push(updates.tutorial_completed);
+    setClauses.push(`tutorial_completed = ${updates.tutorial_completed ? 'TRUE' : 'FALSE'}`);
   }
   if (updates.onboarding_completed !== undefined) {
-    fields.push(`onboarding_completed = $${values.length + 1}`);
-    values.push(updates.onboarding_completed);
+    setClauses.push(`onboarding_completed = ${updates.onboarding_completed ? 'TRUE' : 'FALSE'}`);
   }
-  if (updates.current_step !== undefined) {
-    fields.push(`current_step = $${values.length + 1}`);
-    values.push(updates.current_step);
+  if (updates.completed_at !== undefined) {
+    const dateStr = updates.completed_at instanceof Date 
+      ? updates.completed_at.toISOString() 
+      : updates.completed_at 
+        ? new Date(updates.completed_at).toISOString()
+        : 'NULL';
+    setClauses.push(`completed_at = ${dateStr === 'NULL' ? 'NULL' : `'${dateStr}'`}`);
   }
   
-  fields.push(`updated_at = CURRENT_TIMESTAMP`);
-  values.push(userId);
+  setClauses.push(`updated_at = CURRENT_TIMESTAMP`);
   
-  const result = await sql`
+  const query = `
     UPDATE onboarding_progress 
-    SET ${sql.unsafe(fields.join(", "))}
+    SET ${setClauses.join(", ")}
     WHERE user_id = ${userId}
     RETURNING *
   `;
+  
+  const result = await sql.unsafe(query) as any;
   return result[0] as OnboardingProgress;
 }
 

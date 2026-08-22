@@ -42,8 +42,13 @@ export function ProfileStep({ onComplete, initialData }: ProfileStepProps) {
         income_bracket: incomeBracket,
       };
 
+      // Check if profile exists first
+      const checkResponse = await fetch("/api/profile");
+      const profileExists = checkResponse.ok;
+
+      // Use PATCH if profile exists, POST if it doesn't
       const response = await fetch("/api/profile", {
-        method: "POST",
+        method: profileExists ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });

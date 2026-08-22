@@ -22,11 +22,11 @@ export async function GET() {
       return NextResponse.json(
         { 
           onboarding_completed: false,
-          current_step: 1,
           profile_completed: false,
-          card_added: false,
-          preferences_set: false,
-          tutorial_completed: false
+          cards_completed: false,
+          preferences_completed: false,
+          tutorial_completed: false,
+          completed_at: null
         }
       );
     }

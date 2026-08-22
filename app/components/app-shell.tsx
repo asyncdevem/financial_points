@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { Icon, type IconName } from "./icons";
 import { SecureRefreshModal } from "./secure-refresh-modal";
 import { SessionProvider, useSessionState } from "./session-provider";
@@ -28,6 +28,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 function ShellContent({ children }: { children: ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const {
@@ -38,6 +39,11 @@ function ShellContent({ children }: { children: ReactNode }) {
     timedOut,
     userEmail,
   } = useSessionState();
+
+  // Only show timer after client mount to avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   if (pathname === "/login" || pathname === "/register") {
     return <>{children}</>;
@@ -144,11 +150,15 @@ function ShellContent({ children }: { children: ReactNode }) {
                 {session.short}
               </span>
               <span className="hidden h-10 items-center rounded-md border border-[#2a313d] px-3 font-mono text-xs font-semibold uppercase tracking-[0.04em] text-[#7a8696] md:flex">
-                {timedOut
-                  ? "Timed out"
-                  : `${Math.floor(secondsUntilTimeout / 60)}:${String(
-                      secondsUntilTimeout % 60,
-                    ).padStart(2, "0")}`}
+                {mounted ? (
+                  timedOut
+                    ? "Timed out"
+                    : `${Math.floor(secondsUntilTimeout / 60)}:${String(
+                        secondsUntilTimeout % 60,
+                      ).padStart(2, "0")}`
+                ) : (
+                  "15:00"
+                )}
               </span>
               <button
                 className="hidden h-10 items-center gap-2 rounded-md bg-[#00d395] px-3 text-sm font-semibold text-[#0b0e13] hover:bg-[#35e6b5] sm:flex"

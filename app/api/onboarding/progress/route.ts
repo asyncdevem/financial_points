@@ -21,33 +21,22 @@ export async function PATCH(request: Request) {
     // Validate data
     const allowedFields = [
       "profile_completed",
-      "card_added",
-      "preferences_set",
-      "tutorial_completed",
-      "current_step"
+      "cards_completed",
+      "preferences_completed",
+      "tutorial_completed"
     ];
     
     const updates: any = {};
     
     for (const field of allowedFields) {
       if (data[field] !== undefined) {
-        if (field === "current_step") {
-          if (typeof data[field] !== "number" || data[field] < 1 || data[field] > 4) {
-            return NextResponse.json(
-              { error: "Invalid current_step value (must be 1-4)" },
-              { status: 400 }
-            );
-          }
-          updates[field] = data[field];
-        } else {
-          if (typeof data[field] !== "boolean") {
-            return NextResponse.json(
-              { error: `${field} must be a boolean` },
-              { status: 400 }
-            );
-          }
-          updates[field] = data[field];
+        if (typeof data[field] !== "boolean") {
+          return NextResponse.json(
+            { error: `${field} must be a boolean` },
+            { status: 400 }
+          );
         }
+        updates[field] = data[field];
       }
     }
     

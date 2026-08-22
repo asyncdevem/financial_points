@@ -61,10 +61,12 @@ export type UserCard = {
   card_type: string;
   encrypted_card_number: string;
   last_four: string;
-  expiry_date: string;
+  expiry_month: number;
+  expiry_year: number;
   cvv_hash: string;
   card_nickname: string | null;
   is_active: boolean;
+  added_at: Date;
   created_at: Date;
   updated_at: Date;
 };
@@ -115,11 +117,11 @@ export type OnboardingProgress = {
   id: number;
   user_id: number;
   profile_completed: boolean;
-  card_added: boolean;
-  preferences_set: boolean;
+  cards_completed: boolean;
+  preferences_completed: boolean;
   tutorial_completed: boolean;
   onboarding_completed: boolean;
-  current_step: number;
+  completed_at: Date | null;
   created_at: Date;
   updated_at: Date;
 };

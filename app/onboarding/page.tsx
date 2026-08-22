@@ -22,9 +22,14 @@ export default function OnboardingPage() {
   useEffect(() => {
     async function checkStatus() {
       try {
-        const response = await fetch("/api/onboarding/status");
-        if (response.ok) {
-          const data = await response.json();
+        const [statusRes, profileRes, cardsRes] = await Promise.all([
+          fetch("/api/onboarding/status"),
+          fetch("/api/profile"),
+          fetch("/api/cards"),
+        ]);
+        
+        if (statusRes.ok) {
+          const data = await statusRes.json();
           
           // If already completed, redirect to dashboard
           if (data.onboarding_completed) {
@@ -32,9 +37,42 @@ export default function OnboardingPage() {
             return;
           }
           
-          // Resume from current step
-          setCurrentStep(data.current_step || 1);
+          // Determine current step based on what's completed
+          let step = 1;
+          if (data.profile_completed && !data.cards_completed) {
+            step = 2;
+          } else if (data.profile_completed && data.cards_completed && !data.preferences_completed) {
+            step = 3;
+          } else if (data.profile_completed && data.cards_completed && data.preferences_completed) {
+            step = 4;
+          }
+          
+          setCurrentStep(step as OnboardingStep);
         }
+        
+        // Load existing profile data if available
+        if (profileRes.ok) {
+          const result = await profileRes.json();
+          if (result.profile) {
+            setProfileData({
+              full_name: result.profile.full_name,
+              phone: result.profile.phone,
+              address: result.profile.address,
+              date_of_birth: new Date(result.profile.date_of_birth).toISOString().split('T')[0],
+              income_bracket: result.profile.income_bracket,
+            });
+          }
+        }
+        
+        // Load existing cards if available
+        if (cardsRes.ok) {
+          const result = await cardsRes.json();
+          if (result.cards && result.cards.length > 0) {
+            // Just flag that cards exist, card step will load them
+            setCardData({ hasCards: true });
+          }
+        }
+        
       } catch (error) {
         console.error("Failed to fetch onboarding status:", error);
       } finally {
@@ -47,16 +85,16 @@ export default function OnboardingPage() {
 
   const handleStepComplete = async (stepNumber: OnboardingStep, data: any) => {
     // Update progress on server
-    const updates: any = { current_step: stepNumber + 1 };
+    const updates: any = {};
     
     if (stepNumber === 1) {
       updates.profile_completed = true;
       setProfileData(data);
     } else if (stepNumber === 2) {
-      updates.card_added = !!data;
+      updates.cards_completed = true;
       setCardData(data);
     } else if (stepNumber === 3) {
-      updates.preferences_set = true;
+      updates.preferences_completed = true;
       setPreferencesData(data);
     }
     

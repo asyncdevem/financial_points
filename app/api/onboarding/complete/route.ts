@@ -27,7 +27,7 @@ export async function POST() {
     }
     
     // Verify all steps completed
-    if (!progress.profile_completed || !progress.preferences_set) {
+    if (!progress.profile_completed || !progress.preferences_completed) {
       return NextResponse.json(
         { error: "Please complete all onboarding steps first" },
         { status: 400 }
@@ -37,7 +37,7 @@ export async function POST() {
     // Mark as complete
     const updated = await updateOnboardingProgress(session.user.id, {
       onboarding_completed: true,
-      current_step: 4
+      completed_at: new Date()
     });
     
     return NextResponse.json({
