@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Icon } from "../icons";
 
 export function AuthScreen({ mode }: { mode: "login" | "register" }) {
@@ -12,6 +12,30 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  // Check if user is already logged in
+  useEffect(() => {
+    async function checkSession() {
+      try {
+        const response = await fetch("/api/auth/session");
+        if (response.ok) {
+          const data = await response.json();
+          if (data.user) {
+            // User is already logged in, redirect to dashboard
+            router.push("/dashboard");
+            return;
+          }
+        }
+      } catch (error) {
+        // Session check failed, show login form
+        console.log("No active session");
+      } finally {
+        setCheckingSession(false);
+      }
+    }
+    checkSession();
+  }, [router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -34,8 +58,30 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
         return;
       }
 
-      // Success - redirect to dashboard
-      router.push("/dashboard");
+      // Success - initialize session timer in localStorage
+      if (typeof window !== "undefined") {
+        localStorage.setItem("fp_last_activity", Date.now().toString());
+      }
+
+      // Check onboarding status and redirect appropriately
+      if (isRegister) {
+        // New users should go to onboarding
+        router.push("/onboarding");
+      } else {
+        // Existing users - check onboarding status
+        const statusResponse = await fetch("/api/onboarding/status");
+        if (statusResponse.ok) {
+          const statusData = await statusResponse.json();
+          if (statusData.onboarding_completed) {
+            router.push("/dashboard");
+          } else {
+            router.push("/onboarding");
+          }
+        } else {
+          // If status check fails, go to dashboard (middleware will handle redirect)
+          router.push("/dashboard");
+        }
+      }
       router.refresh();
     } catch (err) {
       setError("Network error. Please try again.");
@@ -45,7 +91,13 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
 
   return (
     <main className="grid min-h-screen place-items-center bg-[#0b0e13] p-4 text-[#f0f2f5]">
-      <section className="w-full max-w-[440px] rounded-lg border border-[#2a313d] bg-[#141820] p-6">
+      {checkingSession ? (
+        <div className="flex items-center gap-2 text-[#7a8696]">
+          <Icon name="clock" />
+          <span>Checking session...</span>
+        </div>
+      ) : (
+        <section className="w-full max-w-[440px] rounded-lg border border-[#2a313d] bg-[#141820] p-6">
         <div className="flex items-start gap-3">
           <div className="grid size-11 place-items-center rounded-md bg-[#00d395] text-[#0b0e13]">
             <Icon name="shield" />
@@ -128,6 +180,7 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
           </Link>
         </p>
       </section>
+      )}
     </main>
   );
 }

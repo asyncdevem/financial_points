@@ -1,5 +1,5 @@
-import { BanksScreen } from "../components/screens/banks-screen";
+import { CardsScreen } from "../components/screens/cards-screen";
 
 export default function BanksPage() {
-  return <BanksScreen />;
+  return <CardsScreen />;
 }

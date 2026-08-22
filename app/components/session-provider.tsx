@@ -24,7 +24,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [sessionState, setSessionState] = useState<SessionState>("live");
   const [refreshOpen, setRefreshOpen] = useState(false);
-  const [lastActivityAt, setLastActivityAt] = useState(Date.now());
+  const [lastActivityAt, setLastActivityAt] = useState(() => {
+    // Try to restore from localStorage
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("fp_last_activity");
+      if (stored) {
+        const timestamp = parseInt(stored, 10);
+        // Only use stored value if it's not expired
+        if (timestamp + 15 * 60 * 1000 > Date.now()) {
+          return timestamp;
+        }
+      }
+    }
+    return Date.now();
+  });
   const [now, setNow] = useState(Date.now());
   const [timedOut, setTimedOut] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -54,8 +67,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const activityEvents = ["click", "keydown", "mousemove", "touchstart"];
 
     function handleActivity() {
-      setLastActivityAt(Date.now());
+      const newTimestamp = Date.now();
+      setLastActivityAt(newTimestamp);
       setTimedOut(false);
+      // Persist to localStorage
+      if (typeof window !== "undefined") {
+        localStorage.setItem("fp_last_activity", newTimestamp.toString());
+      }
     }
 
     activityEvents.forEach((eventName) =>
@@ -85,6 +103,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setRefreshOpen(false);
     setTimedOut(true);
     
+    // Clear localStorage
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("fp_last_activity");
+    }
+    
     // Call logout API to clear session
     try {
       await fetch("/api/auth/logout", { method: "POST" });
@@ -96,6 +119,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }
 
   async function handleWipeSession() {
+    // Clear localStorage
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("fp_last_activity");
+    }
+    
     try {
       await fetch("/api/auth/logout", { method: "POST" });
       setSessionState("wiped");
@@ -117,10 +145,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     },
     closeRefresh: () => setRefreshOpen(false),
     completeRefresh: () => {
+      const newTimestamp = Date.now();
       setSessionState("live");
       setRefreshOpen(false);
       setTimedOut(false);
-      setLastActivityAt(Date.now());
+      setLastActivityAt(newTimestamp);
+      // Persist to localStorage
+      if (typeof window !== "undefined") {
+        localStorage.setItem("fp_last_activity", newTimestamp.toString());
+      }
     },
     wipeSession: handleWipeSession,
     secondsUntilTimeout,

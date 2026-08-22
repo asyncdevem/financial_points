@@ -1,17 +1,52 @@
 "use client";
 
 import Link from "next/link";
+import { useState, useEffect } from "react";
 import { deals, lifecycle, providers } from "../../lib/mock-data";
 import { Icon } from "../icons";
 import { useSessionState } from "../session-provider";
 import { InfoTerm, KpiCard, Panel, SmallState } from "../ui";
+import { TransactionList } from "../transactions/transaction-list";
+import { AddTransactionModal } from "../transactions/add-transaction-modal";
 
 export function DashboardScreen() {
   const { sessionState, session, openRefresh } = useSessionState();
   const wiped = sessionState === "wiped";
+  const [showAddTransaction, setShowAddTransaction] = useState(false);
+  const [pointsData, setPointsData] = useState<any>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    if (!wiped) {
+      fetchPointsData();
+    }
+  }, [wiped, refreshKey]);
+
+  const fetchPointsData = async () => {
+    try {
+      const response = await fetch("/api/points");
+      if (response.ok) {
+        const data = await response.json();
+        setPointsData(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch points:", error);
+    }
+  };
+
+  const handleTransactionAdded = () => {
+    setRefreshKey(prev => prev + 1);
+  };
 
   return (
     <div className="mx-auto max-w-[1380px] space-y-5">
+      {/* Add Transaction Modal */}
+      <AddTransactionModal
+        isOpen={showAddTransaction}
+        onClose={() => setShowAddTransaction(false)}
+        onSuccess={handleTransactionAdded}
+      />
+
       <section className="rounded-lg border border-[#2a313d] bg-[#141820] p-4 lg:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-3">
@@ -53,34 +88,94 @@ export function DashboardScreen() {
         <KpiCard
           icon="reward"
           label="Total reward value"
-          value={wiped ? "Cleared" : "PKR 32,120"}
-          detail={wiped ? "Session data wiped" : "+ PKR 1,420 this month"}
+          value={wiped ? "Cleared" : pointsData ? `PKR ${pointsData.total.estimated_value_pkr.toLocaleString()}` : "Loading..."}
+          detail={wiped ? "Session data wiped" : pointsData ? `${pointsData.total.balance.toLocaleString()} points available` : "Calculating..."}
           tone={wiped ? "danger" : "success"}
         />
         <KpiCard
           icon="chart"
-          label="Total points"
-          value={wiped ? "0" : "70,750"}
-          detail="Across connected providers"
+          label="Total points earned"
+          value={wiped ? "0" : pointsData ? pointsData.total.earned.toLocaleString() : "..."}
+          detail={pointsData ? `${pointsData.by_card.length} card${pointsData.by_card.length !== 1 ? 's' : ''} active` : "Across all cards"}
           tone="info"
         />
         <KpiCard
           icon="bank"
-          label="Connected providers"
-          value="3"
-          detail="2 live, 1 locked"
+          label="Points redeemed"
+          value={wiped ? "0" : pointsData ? pointsData.total.redeemed.toLocaleString() : "..."}
+          detail="Lifetime redemptions"
           tone="neutral"
         />
         <KpiCard
           icon="trendDown"
-          label="Missed value"
-          value={wiped ? "Cleared" : "PKR 3,840"}
-          detail="Opportunity cost detected"
+          label="Available balance"
+          value={wiped ? "Cleared" : pointsData ? pointsData.total.balance.toLocaleString() : "..."}
+          detail="Ready to redeem"
           tone="warning"
         />
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[1.35fr_0.65fr]">
+      <section className="grid gap-5 xl:grid-cols-[1fr_1fr]">
+        <Panel 
+          title="Recent Transactions" 
+          icon="card"
+          action={
+            !wiped ? (
+              <button
+                onClick={() => setShowAddTransaction(true)}
+                className="text-sm font-semibold text-[#00d395] hover:text-[#00b37e]"
+              >
+                Add Transaction
+              </button>
+            ) : undefined
+          }
+        >
+          <TransactionList 
+            key={refreshKey}
+            limit={5} 
+            showAddButton={!wiped}
+            onAddTransaction={() => setShowAddTransaction(true)}
+          />
+        </Panel>
+
+        <Panel title="Points by Card" icon="reward">
+          {wiped ? (
+            <div className="text-center py-8 text-[#7a8696]">
+              <p>Session data cleared</p>
+            </div>
+          ) : pointsData && pointsData.by_card.length > 0 ? (
+            <div className="space-y-4">
+              {pointsData.by_card.slice(0, 5).map((card: any) => (
+                <div key={card.card_id}>
+                  <div className="mb-2 flex items-center justify-between text-sm">
+                    <span className="font-medium">
+                      {card.card_name} •••• {card.last_four}
+                    </span>
+                    <span className="text-[#00d395] font-semibold">
+                      {card.balance.toLocaleString()} pts
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full bg-[#1a202b]">
+                    <div
+                      className="h-2 rounded-full bg-[#00d395]"
+                      style={{
+                        width: `${card.percentage}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-[#7a8696]">
+              <p>No points data available</p>
+              <p className="text-xs mt-2">Add cards and transactions to see your points</p>
+            </div>
+          )}
+        </Panel>
+      </section>
+
+      <section className="grid gap-5 xl:grid-cols-2">
         <Panel title="Provider Status" icon="bank">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[680px] text-left text-sm">

@@ -44,14 +44,11 @@ export async function POST(request: Request) {
     // Create user
     const user = await createUser(email.toLowerCase(), password);
 
-    // Create JWT token
-    const token = await createJWT(user.id);
-
     // Create session in database (returns UUID)
     const sessionId = await createSession(user.id);
 
-    // Set cookies
-    await setSessionCookie(token, sessionId);
+    // Create JWT token with sessionId
+    const token = await createJWT(user.id, sessionId);
 
     // Initialize user preferences
     await sql`
@@ -59,7 +56,14 @@ export async function POST(request: Request) {
       VALUES (${user.id})
     `;
 
-    return NextResponse.json(
+    // Initialize onboarding progress
+    await sql`
+      INSERT INTO onboarding_progress (user_id)
+      VALUES (${user.id})
+    `;
+
+    // Create response with user data
+    const response = NextResponse.json(
       {
         success: true,
         user: {
@@ -69,6 +73,17 @@ export async function POST(request: Request) {
       },
       { status: 201 },
     );
+
+    // Set cookie on response
+    response.cookies.set("fp_session", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 15 * 60, // 15 minutes in seconds
+      path: "/",
+    });
+
+    return response;
   } catch (error) {
     console.error("Signup error:", error);
     return NextResponse.json(

@@ -22,7 +22,10 @@ export type IconName =
   | "filter"
   | "file"
   | "trash"
-  | "calendar";
+  | "calendar"
+  | "arrow-right"
+  | "arrow-left"
+  | "x";
 
 export function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
   const common = {
@@ -186,6 +189,24 @@ export function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
         <path d="M8 3v4" />
         <path d="M16 3v4" />
         <path d="M4 10h16" />
+      </>
+    ),
+    "arrow-right": (
+      <>
+        <path d="M5 12h14" />
+        <path d="M12 5l7 7-7 7" />
+      </>
+    ),
+    "arrow-left": (
+      <>
+        <path d="M19 12H5" />
+        <path d="M12 19l-7-7 7-7" />
+      </>
+    ),
+    x: (
+      <>
+        <path d="M18 6L6 18" />
+        <path d="M6 6l12 12" />
       </>
     ),
   };

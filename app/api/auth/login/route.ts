@@ -41,22 +41,31 @@ export async function POST(request: Request) {
     // Cleanup expired sessions
     await cleanupExpiredSessions();
 
-    // Create JWT token
-    const token = await createJWT(user.id);
-
     // Create session in database (returns UUID)
     const sessionId = await createSession(user.id);
 
-    // Set cookies
-    await setSessionCookie(token, sessionId);
+    // Create JWT token with sessionId
+    const token = await createJWT(user.id, sessionId);
 
-    return NextResponse.json({
+    // Create response with user data
+    const response = NextResponse.json({
       success: true,
       user: {
         id: user.id,
         email: user.email,
       },
     });
+
+    // Set cookie on response
+    response.cookies.set("fp_session", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 15 * 60, // 15 minutes in seconds
+      path: "/",
+    });
+
+    return response;
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json(

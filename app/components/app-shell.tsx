@@ -9,8 +9,9 @@ import { SessionProvider, useSessionState } from "./session-provider";
 
 const navItems: { href: string; label: string; icon: IconName }[] = [
   { href: "/dashboard", label: "Dashboard", icon: "layout" },
-  { href: "/banks", label: "Banks", icon: "bank" },
-  { href: "/recommend", label: "Recommend", icon: "card" },
+  { href: "/banks", label: "My Cards", icon: "card" },
+  { href: "/redemption", label: "Redeem", icon: "reward" },
+  { href: "/recommend", label: "Recommend", icon: "shield" },
   { href: "/deals", label: "Deals", icon: "tags" },
   { href: "/reports", label: "Reports", icon: "download" },
   { href: "/settings", label: "Settings", icon: "settings" },

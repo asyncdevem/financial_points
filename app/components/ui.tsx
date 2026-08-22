@@ -33,16 +33,21 @@ export function Panel({
   title,
   icon,
   children,
+  action,
 }: {
   title: string;
   icon: IconName;
   children: ReactNode;
+  action?: ReactNode;
 }) {
   return (
     <section className="rounded-lg border border-[#2a313d] bg-[#141820] p-4 text-[#f0f2f5] lg:p-5">
-      <div className="mb-4 flex items-center gap-2">
-        <Icon name={icon} />
-        <h2 className="text-base font-semibold">{title}</h2>
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Icon name={icon} />
+          <h2 className="text-base font-semibold">{title}</h2>
+        </div>
+        {action}
       </div>
       {children}
     </section>

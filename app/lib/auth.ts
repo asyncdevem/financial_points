@@ -25,8 +25,8 @@ export async function verifyPassword(
   return bcrypt.compare(password, hash);
 }
 
-export async function createJWT(userId: number): Promise<string> {
-  const token = await new jose.SignJWT({ userId })
+export async function createJWT(userId: number, sessionId: string): Promise<string> {
+  const token = await new jose.SignJWT({ userId, sessionId })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${SESSION_TIMEOUT}m`)
@@ -36,10 +36,13 @@ export async function createJWT(userId: number): Promise<string> {
 
 export async function verifyJWT(
   token: string,
-): Promise<{ userId: number } | null> {
+): Promise<{ userId: number; sessionId: string } | null> {
   try {
     const { payload } = await jose.jwtVerify(token, JWT_SECRET);
-    return { userId: payload.userId as number };
+    return { 
+      userId: payload.userId as number,
+      sessionId: payload.sessionId as string
+    };
   } catch {
     return null;
   }
@@ -119,15 +122,14 @@ export async function getSessionFromCookie(): Promise<{
   sessionId: string;
 } | null> {
   const cookieStore = await cookies();
-  const sessionId = cookieStore.get("session_id")?.value;
-  const token = cookieStore.get("session")?.value;
+  const token = cookieStore.get("fp_session")?.value;
 
-  if (!token || !sessionId) {
+  if (!token) {
     return null;
   }
 
   const payload = await verifyJWT(token);
-  if (!payload) {
+  if (!payload || !payload.sessionId) {
     return null;
   }
 
@@ -136,7 +138,7 @@ export async function getSessionFromCookie(): Promise<{
     return null;
   }
 
-  return { user, sessionId };
+  return { user, sessionId: payload.sessionId };
 }
 
 export async function setSessionCookie(
@@ -144,14 +146,7 @@ export async function setSessionCookie(
   sessionId: string,
 ): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.set("session", token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: SESSION_TIMEOUT * 60,
-    path: "/",
-  });
-  cookieStore.set("session_id", sessionId, {
+  cookieStore.set("fp_session", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -162,6 +157,39 @@ export async function setSessionCookie(
 
 export async function clearSessionCookie(): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.delete("session");
-  cookieStore.delete("session_id");
+  cookieStore.delete("fp_session");
+}
+
+/**
+ * Verify session and return user data
+ * Used in API routes to authenticate requests
+ */
+export async function verifySession(): Promise<{ userId: number; user: AuthUser } | null> {
+  const session = await getSessionFromCookie();
+  
+  if (!session) {
+    return null;
+  }
+
+  // Verify session exists and is not expired in database
+  const dbSession = await sql`
+    SELECT id, user_id, expires_at
+    FROM sessions
+    WHERE id = ${session.sessionId}
+      AND expires_at > CURRENT_TIMESTAMP
+    LIMIT 1
+  `;
+
+  if (dbSession.length === 0) {
+    // Session expired or doesn't exist
+    return null;
+  }
+
+  // Update session activity
+  await updateSessionActivity(session.sessionId);
+
+  return {
+    userId: session.user.id,
+    user: session.user
+  };
 }
